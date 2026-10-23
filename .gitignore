@@ -1,0 +1,52 @@
+# Build
+build/
+sdkconfig
+sdkconfig.old
+
+# ESP-IDF generated
+dependencies.lock
+managed_components/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+.directory
+
+# Logs
+logs/
+*.log
+
+# Host unit tests
+test/host/test_input_validate
+test/host/test_proto_util
+test/host/*.dSYM/
+test/host/*.gcda
+test/host/*.gcno
+test/host/coverage.info
+test/host/test_cobs
+test/host/test_crc16
+test/host/test_proto_frame
+test/host/test_channel_registry
+test/host/test_sensor_cfg
+test/host/test_ldc_logic
+test/host/test_tof_logic
+test/host/test_status_led_logic
+test/host/test_device_config
+test/host/test_proto_cmd
+test/host/test_rx_accum
+test/host/test_stream_logic

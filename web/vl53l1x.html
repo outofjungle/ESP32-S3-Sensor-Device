@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VL53L1X Control Panel</title>
+<link rel="stylesheet" href="common/panel.css">
+<style>
+  #distCanvas { height: 240px; }
+  #presenceStrip { height: 28px; }
+</style>
+</head>
+<body>
+
+<div id="topBanner" hidden></div>
+
+<header class="card">
+  <div class="row between">
+    <div class="row" style="gap:12px;">
+      <h1>VL53L1X Time-of-Flight</h1>
+      <span id="statusPill" class="pill"><span class="dot"></span><span id="statusText">Not connected</span></span>
+    </div>
+    <div class="row">
+      <label class="checkbox-row"><input type="checkbox" id="allPortsCheck"> Show all serial ports</label>
+      <button id="connectBtn" class="primary">Connect</button>
+      <button id="disconnectBtn" hidden>Disconnect</button>
+      <a href="index.html" class="mono" style="font-size:12px;">&larr; panels</a>
+    </div>
+  </div>
+  <div class="device-id" id="deviceId" hidden style="margin-top:8px;">
+    <span><span class="name" id="deviceName">&mdash;</span></span>
+    <span id="deviceMeta">&mdash;</span>
+    <span id="sensMeta"></span>
+  </div>
+</header>
+
+<div class="main-layout">
+<div class="col-main">
+
+  <div class="card" id="distCard">
+    <div class="row between">
+      <h2>Distance (tof0.dist)</h2>
+      <span id="distValue" class="mono" style="font-size:20px;font-weight:600;">&mdash;</span>
+    </div>
+    <canvas id="distCanvas"></canvas>
+    <div class="stat-strip" id="linkStats"></div>
+  </div>
+
+  <div class="card" id="presenceCard">
+    <div class="row between">
+      <h2>Presence (tof0.present)</h2>
+      <span id="presenceBadge" class="badge"><span class="dot"></span><span id="presenceText">no reading</span></span>
+    </div>
+    <canvas id="presenceStrip"></canvas>
+  </div>
+
+  <div class="card" id="healthCard">
+    <h2>Sensor health</h2>
+    <div class="stat-strip" id="healthStats"></div>
+  </div>
+
+  <div class="card" id="cfgCard">
+    <div class="row between">
+      <h2>Configuration</h2>
+      <span id="cfgHint" style="font-size:12px;color:var(--text-muted);">Built from SCAPS at connect</span>
+    </div>
+    <table class="cfg-table" id="cfgTable"><tbody></tbody></table>
+  </div>
+
+  <div class="card" id="calCard">
+    <h2>Calibration</h2>
+    <div class="row" style="margin-bottom:8px;">
+      <span style="width:120px;">Offset</span>
+      <input type="number" id="calOffsetTarget" value="100"> mm target (17% grey)
+      <button class="small" id="calOffsetBtn">Run</button>
+      <span id="calOffsetResult" class="mono"></span>
+    </div>
+    <div class="row">
+      <span style="width:120px;">Crosstalk</span>
+      <input type="number" id="calXtalkTarget" value="100"> mm target
+      <button class="small" id="calXtalkBtn">Run</button>
+      <span id="calXtalkResult" class="mono"></span>
+    </div>
+  </div>
+
+</div>
+<div class="col-side">
+
+  <div class="card" id="ledCard">
+    <h2>LED (led0)</h2>
+    <div class="led-swatches" id="ledSwatches"></div>
+    <div class="row">
+      <span class="led-preview" id="ledPreview"></span>
+      <span id="ledModeText" class="mono" style="font-size:12px;color:var(--text-muted);">&mdash;</span>
+      <button class="small" id="ledStatusModeBtn">Back to STATUS</button>
+    </div>
+  </div>
+
+  <div class="card" id="logCard">
+    <div class="row between">
+      <h2>Activity log</h2>
+      <label class="checkbox-row"><input type="checkbox" id="verboseCheck"> Verbose</label>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+</div>
+
+<script src="common/protocol.js"></script>
+<script src="common/mock-core.js"></script>
+<script src="common/panel-ui.js"></script>
+<script>
+'use strict';
+
+/* =========================================================================
+ * Everything specific to the VL53L1X: the distance chart, the presence
+ * strip, the sensor health card, the calibration card, and the mock
+ * profile. See docs/03-sensor-vl53l1x.md and
+ * docs/09-sensor-configuration.md for the chip this simulates.
+ * ========================================================================= */
+
+const DIST_RANGE_MIN_MM = 40;
+const DIST_RANGE_MAX_MM = 4000;
+const DIST_GRIDLINES_MM = [50, 100, 200, 500, 1000, 2000, 4000];
+const WINDOW_SEC = 30;
+const MAX_SAMPLES = 4000;
+
+const pageState = {
+  distSamples: [],    // {wallMs, mm or null}
+  presenceSamples: [], // {wallMs, present or null}
+};
+
+function logPos(mm) {
+  const lo = Math.log(DIST_RANGE_MIN_MM), hi = Math.log(DIST_RANGE_MAX_MM);
+  const v = Math.min(Math.max(mm, DIST_RANGE_MIN_MM), DIST_RANGE_MAX_MM);
+  return (Math.log(v) - lo) / (hi - lo);
+}
+
+function drawDistChart() {
+  const canvas = document.getElementById('distCanvas');
+  const { ctx, w, h } = Panel.fitCanvas(canvas);
+  const style = getComputedStyle(document.documentElement);
+  const grid = style.getPropertyValue('--grid').trim();
+  const text = style.getPropertyValue('--text-muted').trim();
+  const seriesColor = style.getPropertyValue('--series-dist').trim();
+  const bandColor = style.getPropertyValue('--band-fill').trim();
+
+  ctx.clearRect(0, 0, w, h);
+  const padL = 44, padR = 8, padT = 8, padB = 18;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  const low = Panel.state.cfgValues.get('tof0.thresh_low_mm');
+  const high = Panel.state.cfgValues.get('tof0.thresh_high_mm');
+  if (typeof low === 'number' && typeof high === 'number') {
+    const y1 = padT + (1 - logPos(high)) * plotH;
+    const y2 = padT + (1 - logPos(low)) * plotH;
+    ctx.fillStyle = bandColor;
+    ctx.fillRect(padL, y1, plotW, y2 - y1);
+  }
+
+  ctx.strokeStyle = grid;
+  ctx.fillStyle = text;
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.lineWidth = 1;
+  for (const mm of DIST_GRIDLINES_MM) {
+    const y = padT + (1 - logPos(mm)) * plotH;
+    ctx.beginPath();
+    ctx.moveTo(padL, y + 0.5);
+    ctx.lineTo(padL + plotW, y + 0.5);
+    ctx.stroke();
+    ctx.fillText(mm + '', 2, y + 3);
+  }
+
+  const now = Date.now();
+  const cutoff = now - WINDOW_SEC * 1000;
+  const samples = pageState.distSamples.filter((s) => s.wallMs >= cutoff);
+  if (samples.length < 2) return;
+
+  const t0 = samples[0].wallMs, t1 = samples[samples.length - 1].wallMs;
+  const xOf = (t) => padL + ((t - t0) / Math.max(1, t1 - t0)) * plotW;
+
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = seriesColor;
+  let drawing = false;
+  for (let i = 0; i < samples.length; i++) {
+    const s = samples[i];
+    if (s.mm === null) {
+      if (drawing) { ctx.stroke(); drawing = false; }
+      continue;
+    }
+    const x = xOf(s.wallMs);
+    const y = padT + (1 - logPos(s.mm)) * plotH;
+    if (!drawing) { ctx.beginPath(); ctx.moveTo(x, y); drawing = true; }
+    else ctx.lineTo(x, y);
+  }
+  if (drawing) ctx.stroke();
+}
+
+function drawPresenceStrip() {
+  const canvas = document.getElementById('presenceStrip');
+  const { ctx, w, h } = Panel.fitCanvas(canvas);
+  const style = getComputedStyle(document.documentElement);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = style.getPropertyValue('--grid').trim();
+  ctx.fillRect(0, 0, w, h);
+
+  const now = Date.now();
+  const cutoff = now - WINDOW_SEC * 1000;
+  const samples = pageState.presenceSamples.filter((s) => s.wallMs >= cutoff);
+  if (samples.length === 0) return;
+  const t0 = cutoff, t1 = now;
+  ctx.fillStyle = style.getPropertyValue('--amber').trim();
+  for (let i = 0; i < samples.length; i++) {
+    if (samples[i].present !== true) continue;
+    const x0 = ((samples[i].wallMs - t0) / (t1 - t0)) * w;
+    const x1 = i + 1 < samples.length ? ((samples[i + 1].wallMs - t0) / (t1 - t0)) * w : w;
+    ctx.fillRect(x0, 0, Math.max(1, x1 - x0), h);
+  }
+}
+
+function updatePresenceBadge(value) {
+  const badge = document.getElementById('presenceBadge');
+  const text = document.getElementById('presenceText');
+  if (value === null) {
+    badge.classList.remove('present');
+    text.textContent = 'window off';
+  } else if (value === true) {
+    badge.classList.add('present');
+    text.textContent = 'present';
+  } else {
+    badge.classList.remove('present');
+    text.textContent = 'not present';
+  }
+}
+
+let distTrimCounter = 0;
+function onSample(detail) {
+  const wallMs = Date.now();
+  if (detail.channel === 'tof0.dist') {
+    pageState.distSamples.push({ wallMs, mm: detail.value });
+    document.getElementById('distValue').textContent = detail.value === null ? 'no reading' : detail.value + ' mm';
+    if (++distTrimCounter % 64 === 0 && pageState.distSamples.length > MAX_SAMPLES) {
+      pageState.distSamples.splice(0, pageState.distSamples.length - MAX_SAMPLES);
+    }
+  } else if (detail.channel === 'tof0.present') {
+    pageState.presenceSamples.push({ wallMs, present: detail.value });
+    updatePresenceBadge(detail.value);
+    if (pageState.presenceSamples.length > MAX_SAMPLES) {
+      pageState.presenceSamples.splice(0, pageState.presenceSamples.length - MAX_SAMPLES);
+    }
+  }
+}
+
+function onPoll(map) {
+  document.getElementById('healthStats').innerHTML =
+    '<span>status: <b>' + Panel.fmt(map['tof0.status']) + '</b></span>' +
+    '<span>signal: <b>' + Panel.fmt(map['tof0.signal']) + '</b> kcps</span>' +
+    '<span>ambient: <b>' + Panel.fmt(map['tof0.ambient']) + '</b> kcps</span>' +
+    '<span>spads: <b>' + Panel.fmt(map['tof0.spads']) + '</b></span>';
+}
+
+function draw() {
+  drawDistChart();
+  drawPresenceStrip();
+}
+
+/* =========================================================================
+ * Calibration card
+ * ========================================================================= */
+
+document.getElementById('calOffsetBtn').addEventListener('click', async () => {
+  const target = Number(document.getElementById('calOffsetTarget').value);
+  const out = document.getElementById('calOffsetResult');
+  out.textContent = 'running...';
+  try {
+    const r = await Panel.state.link.sendSlow('CAL', 'tof0.offset', target);
+    out.textContent = 'offset: ' + r.values[0] + ' mm';
+  } catch (e) {
+    out.textContent = e instanceof ProtocolError ? e.code : e.message;
+  }
+});
+document.getElementById('calXtalkBtn').addEventListener('click', async () => {
+  const target = Number(document.getElementById('calXtalkTarget').value);
+  const out = document.getElementById('calXtalkResult');
+  out.textContent = 'running...';
+  try {
+    const r = await Panel.state.link.sendSlow('CAL', 'tof0.xtalk', target);
+    out.textContent = 'xtalk: ' + r.values[0] + ' cps';
+  } catch (e) {
+    out.textContent = e instanceof ProtocolError ? e.code : e.message;
+  }
+});
+
+/* =========================================================================
+ * Mock profile -- simulates the VL53L1X well enough to exercise the
+ * chart, the presence badge, and the configuration round trip. See
+ * docs/17-web-control-panel.md.
+ * ========================================================================= */
+
+const tofCfgDefs = [
+  { name: 'tof0.dist_mode', type: 'enum', min: 0, max: 1, def: 1, unit: null, enumValues: ['SHORT', 'LONG'] },
+  { name: 'tof0.budget_ms', type: 'uint', min: 15, max: 500, def: 50, unit: 'ms' },
+  { name: 'tof0.intermeas_ms', type: 'uint', min: 20, max: 5000, def: 100, unit: 'ms' },
+  { name: 'tof0.roi_x', type: 'uint', min: 4, max: 16, def: 16, unit: null },
+  { name: 'tof0.roi_y', type: 'uint', min: 4, max: 16, def: 16, unit: null },
+  { name: 'tof0.roi_center', type: 'uint', min: 0, max: 255, def: 199, unit: null },
+  { name: 'tof0.offset_mm', type: 'int', min: -1024, max: 1023, def: 0, unit: 'mm' },
+  { name: 'tof0.xtalk_cps', type: 'uint', min: 0, max: 65535, def: 0, unit: 'kcps' },
+  { name: 'tof0.sigma_mm', type: 'uint', min: 1, max: 65535, def: 15, unit: 'mm' },
+  { name: 'tof0.signal_kcps', type: 'uint', min: 1, max: 65535, def: 1024, unit: 'kcps' },
+  { name: 'tof0.window', type: 'enum', min: 0, max: 4, def: 4, unit: null, enumValues: ['OFF', 'BELOW', 'ABOVE', 'OUT', 'IN'] },
+  { name: 'tof0.thresh_low_mm', type: 'uint', min: 0, max: 4000, def: 50, unit: 'mm' },
+  { name: 'tof0.thresh_high_mm', type: 'uint', min: 0, max: 4000, def: 1500, unit: 'mm' },
+  { name: 'tof0.int_polarity', type: 'enum', min: 0, max: 1, def: 0, unit: null, enumValues: ['HIGH', 'LOW'] },
+];
+
+function simDistanceMm(t) {
+  const period = 8000;
+  const phase = (t % period) / period;
+  const triangle = phase < 0.5 ? phase * 2 : 2 - phase * 2;
+  return Math.round(DIST_RANGE_MIN_MM + triangle * (1200 - DIST_RANGE_MIN_MM));
+}
+
+const mockProfile = {
+  sensRow: ['tof0', 'vl53l1x', 'i2c', 0x29, 'ok'],
+  channels: [
+    ['tof0.dist', 'uint', 'RO'], ['tof0.present', 'bool', 'RO'],
+    ['tof0.status', 'uint', 'RO'], ['tof0.signal', 'uint', 'RO'],
+    ['tof0.ambient', 'uint', 'RO'], ['tof0.spads', 'uint', 'RO'],
+  ],
+  cfgDefs: tofCfgDefs,
+  channelValue(name, cfg) {
+    const t = Date.now();
+    if (name === 'tof0.status') return 0;
+    if (name === 'tof0.signal') return 1500;
+    if (name === 'tof0.ambient') return 40;
+    if (name === 'tof0.spads') return 180;
+    if (name === 'tof0.dist') return simDistanceMm(t);
+    if (name === 'tof0.present') {
+      if (cfg['tof0.window'] === 0) return null;
+      const d = simDistanceMm(t);
+      return d >= cfg['tof0.thresh_low_mm'] && d <= cfg['tof0.thresh_high_mm'];
+    }
+    return null;
+  },
+  action(name, arg) {
+    if (name === 'offset') return -2;
+    if (name === 'xtalk') return 1800;
+    return null;
+  },
+};
+
+Panel.start({
+  prefsKey: 'vl53l1x',
+  subscribe: ['tof0.dist', 'tof0.present'],
+  onSample,
+  onPoll,
+  draw,
+  mockProfile,
+});
+</script>
+</body>
+</html>

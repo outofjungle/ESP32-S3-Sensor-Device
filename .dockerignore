@@ -1,0 +1,31 @@
+# Build artifacts
+build/
+managed_components/
+dependencies.lock
+sdkconfig
+sdkconfig.old
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+
+# Logs
+*.log
+*.tmp
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc

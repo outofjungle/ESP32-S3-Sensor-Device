@@ -1,0 +1,13 @@
+# Name,   Type, SubType, Offset,  Size, Flags
+#
+# Partition layout for 8MB flash. No OTA in this PoC, see
+# docs/00-overview.md, "Out of scope".
+#
+#   0x000000 - 0x008FFF: Bootloader + partition table
+#   0x009000 - 0x00EFFF: nvs (24KB) - device and sensor configuration
+#   0x00F000 - 0x00FFFF: phy_init (4KB) - PHY calibration data
+#   0x010000 - 0x7FFFFF: factory (about 8.06MB) - the application
+#
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  0x7F0000,

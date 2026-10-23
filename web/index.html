@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32-S3 Sensor Device</title>
+<link rel="stylesheet" href="common/panel.css">
+<style>
+  .panel-grid { display: flex; gap: 14px; flex-wrap: wrap; }
+  .panel-card { flex: 1 1 320px; min-width: 260px; }
+  .panel-card h2 { font-size: 15px; text-transform: none; letter-spacing: normal; color: var(--text-primary); margin-bottom: 4px; }
+  .panel-card p { font-size: 13px; color: var(--text-secondary); margin: 0 0 14px; }
+  .panel-card .row { gap: 8px; }
+  .panel-card a.open {
+    display: inline-block; padding: 7px 14px; border-radius: 7px;
+    background: var(--series-dist); color: #fff; text-decoration: none; font-size: 13px;
+  }
+  .panel-card a.mock {
+    display: inline-block; padding: 7px 14px; border-radius: 7px;
+    border: 1px solid var(--border); color: var(--text-primary); text-decoration: none; font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<header class="card">
+  <h1>ESP32-S3 Sensor Device</h1>
+  <p style="font-size:13px;color:var(--text-muted);margin:6px 0 0;">
+    One control panel per sensor module. The device runs one at a time, chosen at build time
+    (<code>make build SENSOR=tof</code> or <code>SENSOR=ldc</code>) -- open the panel matching
+    what is flashed. See <code>docs/17-web-control-panel.md</code>.
+  </p>
+</header>
+
+<div class="panel-grid">
+
+  <div class="card panel-card">
+    <h2>VL53L1X Time-of-Flight</h2>
+    <p>Distance, presence, and calibration for the M5Stack ToF4M Grove unit.
+       Firmware: <code>SENSOR=tof</code> (the default).</p>
+    <div class="row">
+      <a class="open" href="vl53l1x.html">Open</a>
+      <a class="mock" href="vl53l1x.html?mock=1">Try with no hardware</a>
+    </div>
+  </div>
+
+  <div class="card panel-card">
+    <h2>LDC1612 2-Channel Inductive</h2>
+    <p>Raw count, frequency, and presence for the Seeed Grove inductive sensor.
+       Firmware: <code>SENSOR=ldc</code>.</p>
+    <div class="row">
+      <a class="open" href="ldc1612.html">Open</a>
+      <a class="mock" href="ldc1612.html?mock=1">Try with no hardware</a>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

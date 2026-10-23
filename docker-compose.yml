@@ -1,0 +1,27 @@
+services:
+  esp-idf:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: esp32-s3-sensor-device-dev:latest
+
+    volumes:
+      - .:/project
+
+    working_dir: /project
+
+    environment:
+      - IDF_TARGET=esp32s3
+      - IDF_GIT_SAFE_DIR=/project
+
+    # USB Device Access:
+    # - Docker for Mac does NOT support USB device pass-through.
+    # - This project builds firmware in Docker and flashes it with the host's
+    #   own esptool. See docs/14-build-and-flash.md.
+    #
+    # On Linux, direct device access can be enabled here if needed:
+    # devices:
+    #   - /dev/ttyACM0:/dev/ttyACM0
+
+    stdin_open: true
+    tty: true

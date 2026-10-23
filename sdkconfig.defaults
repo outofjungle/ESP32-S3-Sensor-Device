@@ -1,0 +1,39 @@
+# ESP32-S3 Sensor Device - SDK Configuration
+# Default board: M5Stack AtomS3 Lite. See docs/02-board-atoms3-lite.md and
+# docs/04-usb-device-and-descriptors.md.
+
+# Target
+CONFIG_IDF_TARGET="esp32s3"
+
+# Flash size: this board has 8 MB.
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+
+# Partition table
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# Console: routed to nothing. The application sends its own log output to
+# CDC1 instead. See docs/12-flow-control-and-backpressure.md.
+CONFIG_ESP_CONSOLE_NONE=y
+
+# TinyUSB: two CDC-ACM ports (docs/04-usb-device-and-descriptors.md).
+CONFIG_TINYUSB_CDC_ENABLED=y
+CONFIG_TINYUSB_CDC_COUNT=2
+CONFIG_TINYUSB_CDC_RX_BUFSIZE=512
+CONFIG_TINYUSB_CDC_TX_BUFSIZE=1024
+
+# USB identity: Espressif's VID, with a placeholder PID pending
+# registration through github.com/espressif/usb-pids. Deliberately
+# different from the sibling M5Atom-Serial-Switch-Sensor project's 0x8001,
+# so both can be plugged into the same host at once without colliding. See
+# docs/04-usb-device-and-descriptors.md.
+CONFIG_TINYUSB_DESC_USE_ESPRESSIF_VID=y
+CONFIG_TINYUSB_DESC_USE_DEFAULT_PID=n
+CONFIG_TINYUSB_DESC_CUSTOM_PID=0x8002
+CONFIG_TINYUSB_DESC_MANUFACTURER_STRING="ESP32-S3 Sensor Device Project"
+CONFIG_TINYUSB_DESC_PRODUCT_STRING="ESP32-S3 Sensor Device"
+
+# Memory
+CONFIG_NEWLIB_NANO_FORMAT=y
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y

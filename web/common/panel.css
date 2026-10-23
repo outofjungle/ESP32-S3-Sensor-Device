@@ -1,0 +1,189 @@
+/* Shared stylesheet for every sensor panel and the launcher. See
+   docs/17-web-control-panel.md. A page adds its own small <style> block
+   only for what is specific to it (e.g. a chart's height). */
+
+:root {
+  color-scheme: light;
+  --page:           #f7f7f5;
+  --surface-1:      #ffffff;
+  --text-primary:   #14130f;
+  --text-secondary: #55534c;
+  --text-muted:     #8d8a80;
+  --grid:           #e4e2d9;
+  --baseline:       #c7c4b7;
+  --border:         rgba(20,19,15,0.10);
+  --card-shadow:    0 1px 2px rgba(20,19,15,0.06);
+  --series-dist:    #2a6fd6;
+  --series-dist-fill: rgba(42,111,214,0.14);
+  --series-2:       #1a9e4a;
+  --series-2-fill:  rgba(26,158,74,0.14);
+  --band-fill:      rgba(42,111,214,0.10);
+  --good:           #1a9e4a;
+  --amber:          #c98a0c;
+  --critical:       #cc3b3b;
+  --warning:        #c98a0c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page:           #16160f;
+    --surface-1:      #201f18;
+    --text-primary:   #f1efe6;
+    --text-secondary: #c2bfb2;
+    --text-muted:     #847f70;
+    --grid:           #37352a;
+    --baseline:       #4a4738;
+    --border:         rgba(241,239,230,0.10);
+    --card-shadow:    0 1px 2px rgba(0,0,0,0.4);
+    --series-dist:    #6fa6ef;
+    --series-dist-fill: rgba(111,166,239,0.18);
+    --series-2:       #3fcf7a;
+    --series-2-fill:  rgba(63,207,122,0.18);
+    --band-fill:      rgba(111,166,239,0.12);
+    --good:           #3fcf7a;
+    --amber:          #e3ac3a;
+    --critical:       #e3615f;
+    --warning:        #e3ac3a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page:           #16160f;
+  --surface-1:      #201f18;
+  --text-primary:   #f1efe6;
+  --text-secondary: #c2bfb2;
+  --text-muted:     #847f70;
+  --grid:           #37352a;
+  --baseline:       #4a4738;
+  --border:         rgba(241,239,230,0.10);
+  --card-shadow:    0 1px 2px rgba(0,0,0,0.4);
+  --series-dist:    #6fa6ef;
+  --series-dist-fill: rgba(111,166,239,0.18);
+  --series-2:       #3fcf7a;
+  --series-2-fill:  rgba(63,207,122,0.18);
+  --band-fill:      rgba(111,166,239,0.12);
+  --good:           #3fcf7a;
+  --amber:          #e3ac3a;
+  --critical:       #e3615f;
+  --warning:        #e3ac3a;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--page);
+  color: var(--text-primary);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 16px;
+  padding-block: 20px;
+}
+h1 { font-size: 18px; margin: 0; }
+h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+code, .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--card-shadow);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row.between { justify-content: space-between; }
+button {
+  font: inherit;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+button.primary { background: var(--series-dist); color: #fff; border-color: transparent; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.small { padding: 4px 10px; font-size: 12px; }
+input[type="text"], input[type="number"], select {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--text-primary);
+}
+input[type="number"] { width: 110px; }
+label.checkbox-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--page); border: 1px solid var(--border);
+  font-size: 12px; color: var(--text-secondary);
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.pill.ok .dot { background: var(--good); }
+.pill.bad .dot { background: var(--critical); }
+.device-id { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
+.device-id .name { color: var(--text-secondary); font-weight: 600; }
+[hidden] { display: none !important; }
+
+.main-layout { display: flex; gap: 14px; align-items: flex-start; }
+.col-main { flex: 1 1 60%; min-width: 0; }
+.col-side { flex: 1 1 38%; min-width: 280px; }
+@media (max-width: 900px) {
+  .main-layout { flex-direction: column; }
+  .col-main, .col-side { flex: 1 1 auto; width: 100%; }
+}
+
+canvas { width: 100%; display: block; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 10px; font-weight: 600; font-size: 15px;
+  background: var(--page); border: 1px solid var(--border); color: var(--text-secondary);
+}
+.badge.present { background: color-mix(in srgb, var(--amber) 16%, var(--surface-1)); color: var(--amber); }
+.badge .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+
+.stat-strip { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--text-muted); }
+.stat-strip b { color: var(--text-primary); font-weight: 600; }
+
+table.cfg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.cfg-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.cfg-table td.key { color: var(--text-secondary); white-space: nowrap; }
+table.cfg-table td.unit { color: var(--text-muted); font-size: 11px; }
+.verify-ok { color: var(--good); font-size: 11px; }
+.verify-bad { color: var(--critical); font-size: 11px; }
+
+.led-swatches { display: flex; gap: 8px; margin-bottom: 10px; }
+.swatch { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; }
+.led-preview { display: inline-block; width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--border); vertical-align: middle; margin-right: 6px; }
+
+#log {
+  font-size: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--page);
+  border-radius: 6px;
+  padding: 8px;
+}
+#log .line { padding: 1px 0; color: var(--text-secondary); }
+#log .line.warn { color: var(--warning); }
+#log .line.err { color: var(--critical); }
+
+#topBanner {
+  background: color-mix(in srgb, var(--critical) 14%, var(--surface-1));
+  color: var(--critical);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}

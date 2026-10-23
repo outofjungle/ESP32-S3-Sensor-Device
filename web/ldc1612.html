@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LDC1612 Control Panel</title>
+<link rel="stylesheet" href="common/panel.css">
+<style>
+  #ch0Chart, #ch1Chart { height: 160px; }
+  #ch0Strip, #ch1Strip { height: 20px; }
+  .chan-readout { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+  .chan-readout b { color: var(--text-primary); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="topBanner" hidden></div>
+
+<header class="card">
+  <div class="row between">
+    <div class="row" style="gap:12px;">
+      <h1>LDC1612 2-Channel Inductive</h1>
+      <span id="statusPill" class="pill"><span class="dot"></span><span id="statusText">Not connected</span></span>
+    </div>
+    <div class="row">
+      <label class="checkbox-row"><input type="checkbox" id="allPortsCheck"> Show all serial ports</label>
+      <button id="connectBtn" class="primary">Connect</button>
+      <button id="disconnectBtn" hidden>Disconnect</button>
+      <a href="index.html" class="mono" style="font-size:12px;">&larr; panels</a>
+    </div>
+  </div>
+  <div class="device-id" id="deviceId" hidden style="margin-top:8px;">
+    <span><span class="name" id="deviceName">&mdash;</span></span>
+    <span id="deviceMeta">&mdash;</span>
+    <span id="sensMeta"></span>
+  </div>
+</header>
+
+<div class="main-layout">
+<div class="col-main">
+
+  <div class="card" id="ch0Card">
+    <div class="row between">
+      <h2>Channel 0 (ldc0.ch0_raw)</h2>
+      <span id="ch0Badge" class="badge"><span class="dot"></span><span id="ch0PresentText">no reading</span></span>
+    </div>
+    <div class="chan-readout">raw <b id="ch0RawText">&mdash;</b> &middot;
+      <b id="ch0FreqText">&mdash;</b> MHz &middot; L &asymp; <b id="ch0IndText">&mdash;</b> &micro;H</div>
+    <canvas id="ch0Chart"></canvas>
+    <canvas id="ch0Strip"></canvas>
+    <div class="stat-strip" id="linkStats"></div>
+  </div>
+
+  <div class="card" id="ch1Card">
+    <div class="row between">
+      <h2>Channel 1 (ldc0.ch1_raw)</h2>
+      <span id="ch1Badge" class="badge"><span class="dot"></span><span id="ch1PresentText">no reading</span></span>
+    </div>
+    <div class="chan-readout">raw <b id="ch1RawText">&mdash;</b> &middot;
+      <b id="ch1FreqText">&mdash;</b> MHz &middot; L &asymp; <b id="ch1IndText">&mdash;</b> &micro;H</div>
+    <canvas id="ch1Chart"></canvas>
+    <canvas id="ch1Strip"></canvas>
+  </div>
+
+  <div class="card" id="healthCard">
+    <h2>Sensor health</h2>
+    <div class="stat-strip" id="healthStats"></div>
+  </div>
+
+  <div class="card" id="cfgCard">
+    <div class="row between">
+      <h2>Configuration</h2>
+      <span id="cfgHint" style="font-size:12px;color:var(--text-muted);">Built from SCAPS at connect</span>
+    </div>
+    <table class="cfg-table" id="cfgTable"><tbody></tbody></table>
+  </div>
+
+</div>
+<div class="col-side">
+
+  <div class="card" id="coilCard">
+    <h2>Coil</h2>
+    <div class="row">
+      <span style="width:140px;">Capacitance (pF)</span>
+      <input type="number" id="coilCapInput" value="100">
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:8px 0 0;">
+      Not sent to the device. Used only to compute the inductance shown above each
+      channel's frequency: L = 1 / ((2&pi;f)&sup2; &times; C). See
+      <code>docs/19-sensor-ldc1612.md</code>.
+    </p>
+  </div>
+
+  <div class="card" id="ledCard">
+    <h2>LED (led0)</h2>
+    <div class="led-swatches" id="ledSwatches"></div>
+    <div class="row">
+      <span class="led-preview" id="ledPreview"></span>
+      <span id="ledModeText" class="mono" style="font-size:12px;color:var(--text-muted);">&mdash;</span>
+      <button class="small" id="ledStatusModeBtn">Back to STATUS</button>
+    </div>
+  </div>
+
+  <div class="card" id="logCard">
+    <div class="row between">
+      <h2>Activity log</h2>
+      <label class="checkbox-row"><input type="checkbox" id="verboseCheck"> Verbose</label>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+</div>
+
+<script src="common/protocol.js"></script>
+<script src="common/mock-core.js"></script>
+<script src="common/panel-ui.js"></script>
+<script>
+'use strict';
+
+/* =========================================================================
+ * Everything specific to the LDC1612: the two channel charts, the
+ * presence strips, the sensor health decode, the coil inductance display,
+ * and the mock profile. See docs/19-sensor-ldc1612.md and
+ * docs/09-sensor-configuration.md for the chip this simulates.
+ * ========================================================================= */
+
+const WINDOW_SEC = 30;
+const MAX_SAMPLES = 4000;
+
+const pageState = {
+  samples: [[], []],  // per channel: {wallMs, raw or null}
+  present: [[], []],  // per channel: {wallMs, present or null}
+  window: [0, 0],      // last known window mode index, for the chart's null rule
+};
+
+/* =========================================================================
+ * Channel charts -- linear, auto-ranging, unlike the VL53L1X's fixed
+ * log scale: a raw count sits in a narrow band near a baseline rather
+ * than spanning orders of magnitude.
+ * ========================================================================= */
+
+function drawChannelChart(ch) {
+  const canvas = document.getElementById('ch' + ch + 'Chart');
+  const { ctx, w, h } = Panel.fitCanvas(canvas);
+  const style = getComputedStyle(document.documentElement);
+  const grid = style.getPropertyValue('--grid').trim();
+  const text = style.getPropertyValue('--text-muted').trim();
+  const seriesColor = style.getPropertyValue(ch === 0 ? '--series-dist' : '--series-2').trim();
+
+  ctx.clearRect(0, 0, w, h);
+  const padL = 8, padR = 8, padT = 8, padB = 8;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  const now = Date.now();
+  const cutoff = now - WINDOW_SEC * 1000;
+  const samples = pageState.samples[ch].filter((s) => s.wallMs >= cutoff);
+  ctx.strokeStyle = grid;
+  ctx.fillStyle = text;
+  if (samples.length < 2) return;
+
+  let lo = Infinity, hi = -Infinity;
+  for (const s of samples) {
+    if (s.raw === null) continue;
+    if (s.raw < lo) lo = s.raw;
+    if (s.raw > hi) hi = s.raw;
+  }
+  if (!isFinite(lo)) return;
+  if (hi === lo) { hi += 1; lo -= 1; } // avoid a zero-height plot for a flat line
+  const margin = (hi - lo) * 0.1;
+  lo -= margin; hi += margin;
+
+  const t0 = samples[0].wallMs, t1 = samples[samples.length - 1].wallMs;
+  const xOf = (t) => padL + ((t - t0) / Math.max(1, t1 - t0)) * plotW;
+  const yOf = (raw) => padT + (1 - (raw - lo) / (hi - lo)) * plotH;
+
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = seriesColor;
+  let drawing = false;
+  for (const s of samples) {
+    if (s.raw === null) {
+      if (drawing) { ctx.stroke(); drawing = false; }
+      continue;
+    }
+    const x = xOf(s.wallMs), y = yOf(s.raw);
+    if (!drawing) { ctx.beginPath(); ctx.moveTo(x, y); drawing = true; }
+    else ctx.lineTo(x, y);
+  }
+  if (drawing) ctx.stroke();
+}
+
+function drawPresenceStrip(ch) {
+  const canvas = document.getElementById('ch' + ch + 'Strip');
+  const { ctx, w, h } = Panel.fitCanvas(canvas);
+  const style = getComputedStyle(document.documentElement);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = style.getPropertyValue('--grid').trim();
+  ctx.fillRect(0, 0, w, h);
+
+  const now = Date.now();
+  const cutoff = now - WINDOW_SEC * 1000;
+  const samples = pageState.present[ch].filter((s) => s.wallMs >= cutoff);
+  if (samples.length === 0) return;
+  const t0 = cutoff, t1 = now;
+  ctx.fillStyle = style.getPropertyValue('--amber').trim();
+  for (let i = 0; i < samples.length; i++) {
+    if (samples[i].present !== true) continue;
+    const x0 = ((samples[i].wallMs - t0) / (t1 - t0)) * w;
+    const x1 = i + 1 < samples.length ? ((samples[i + 1].wallMs - t0) / (t1 - t0)) * w : w;
+    ctx.fillRect(x0, 0, Math.max(1, x1 - x0), h);
+  }
+}
+
+function draw() {
+  drawChannelChart(0);
+  drawChannelChart(1);
+  drawPresenceStrip(0);
+  drawPresenceStrip(1);
+}
+
+function updatePresenceBadge(ch, value) {
+  const badge = document.getElementById('ch' + ch + 'Badge');
+  const text = document.getElementById('ch' + ch + 'PresentText');
+  if (value === null) {
+    badge.classList.remove('present');
+    text.textContent = 'window off';
+  } else if (value === true) {
+    badge.classList.add('present');
+    text.textContent = 'present';
+  } else {
+    badge.classList.remove('present');
+    text.textContent = 'not present';
+  }
+}
+
+/* =========================================================================
+ * Inductance, from the live frequency and the host-side coil capacitance.
+ * L = 1 / ((2*pi*f)^2 * C). See docs/19-sensor-ldc1612.md.
+ * ========================================================================= */
+
+function coilCapacitanceF() {
+  const pf = Number(document.getElementById('coilCapInput').value) || 100;
+  return pf * 1e-12;
+}
+function inductanceUh(freqHz) {
+  if (!freqHz) return null;
+  const c = coilCapacitanceF();
+  const l = 1 / (Math.pow(2 * Math.PI * freqHz, 2) * c);
+  return l * 1e6; // henries to microhenries
+}
+
+let sampleTrimCounter = 0;
+function onSample(detail) {
+  const wallMs = Date.now();
+  const m = /^ldc0\.ch(\d)_(raw|present)$/.exec(detail.channel);
+  if (!m) return;
+  const ch = Number(m[1]);
+  if (m[2] === 'raw') {
+    pageState.samples[ch].push({ wallMs, raw: detail.value });
+    document.getElementById('ch' + ch + 'RawText').textContent = detail.value === null ? 'no reading' : detail.value;
+    if (++sampleTrimCounter % 64 === 0) {
+      for (const arr of pageState.samples) {
+        if (arr.length > MAX_SAMPLES) arr.splice(0, arr.length - MAX_SAMPLES);
+      }
+    }
+  } else {
+    pageState.present[ch].push({ wallMs, present: detail.value });
+    updatePresenceBadge(ch, detail.value);
+    if (pageState.present[ch].length > MAX_SAMPLES) {
+      pageState.present[ch].splice(0, pageState.present[ch].length - MAX_SAMPLES);
+    }
+  }
+}
+
+/* =========================================================================
+ * Sensor health -- decode STATUS and the two per-channel error nibbles.
+ * See docs/19-sensor-ldc1612.md.
+ * ========================================================================= */
+
+function decodeStatus(status) {
+  if (status === undefined || status === null) return '&mdash;';
+  const bits = [];
+  if (status & 0x0040) bits.push('DRDY');
+  if (status & 0x2000) bits.push('ERR_UR');
+  if (status & 0x1000) bits.push('ERR_OR');
+  if (status & 0x0800) bits.push('ERR_WD');
+  if (status & 0x0400) bits.push('ERR_AHE');
+  if (status & 0x0200) bits.push('ERR_ALE');
+  if (status & 0x0100) bits.push('ERR_ZC');
+  return bits.length ? bits.join(', ') : 'ok';
+}
+function decodeErrFlags(v) {
+  if (v === undefined || v === null) return '&mdash;';
+  const bits = [];
+  if (v & 0x8) bits.push('UR');
+  if (v & 0x4) bits.push('OR');
+  if (v & 0x2) bits.push('WD');
+  if (v & 0x1) bits.push('AE');
+  return bits.length ? bits.join(',') : 'ok';
+}
+
+function onPoll(map) {
+  document.getElementById('healthStats').innerHTML =
+    '<span>status: <b>' + decodeStatus(map['ldc0.status']) + '</b></span>' +
+    '<span>ch0 err: <b>' + decodeErrFlags(map['ldc0.ch0_err']) + '</b></span>' +
+    '<span>ch1 err: <b>' + decodeErrFlags(map['ldc0.ch1_err']) + '</b></span>';
+
+  for (const ch of [0, 1]) {
+    const freq = map['ldc0.ch' + ch + '_freq_hz'];
+    const freqText = document.getElementById('ch' + ch + 'FreqText');
+    const indText = document.getElementById('ch' + ch + 'IndText');
+    if (typeof freq === 'number') {
+      freqText.textContent = (freq / 1e6).toFixed(4);
+      const l = inductanceUh(freq);
+      indText.textContent = l === null ? '&mdash;' : l.toFixed(2);
+    } else {
+      freqText.textContent = '&mdash;';
+      indText.textContent = '&mdash;';
+    }
+  }
+}
+
+/* =========================================================================
+ * Mock profile -- simulates both channels as a baseline raw count with
+ * slow drift, plus a periodic approach, honoring the window keys so the
+ * presence badges move. See docs/17-web-control-panel.md.
+ * ========================================================================= */
+
+const WINDOW_ENUM = ['OFF', 'BELOW', 'ABOVE', 'OUT', 'IN'];
+
+const ldcCfgDefs = [
+  { name: 'ldc0.ch0_rcount', type: 'uint', min: 4, max: 65535, def: 1350, unit: null },
+  { name: 'ldc0.ch1_rcount', type: 'uint', min: 4, max: 65535, def: 1350, unit: null },
+  { name: 'ldc0.ch0_settlecount', type: 'uint', min: 2, max: 65535, def: 30, unit: null },
+  { name: 'ldc0.ch1_settlecount', type: 'uint', min: 2, max: 65535, def: 30, unit: null },
+  { name: 'ldc0.ch0_fin_div', type: 'uint', min: 1, max: 15, def: 1, unit: null },
+  { name: 'ldc0.ch1_fin_div', type: 'uint', min: 1, max: 15, def: 1, unit: null },
+  { name: 'ldc0.ch0_fref_div', type: 'uint', min: 1, max: 1023, def: 2, unit: null },
+  { name: 'ldc0.ch1_fref_div', type: 'uint', min: 1, max: 1023, def: 2, unit: null },
+  { name: 'ldc0.ch0_idrive', type: 'uint', min: 0, max: 31, def: 20, unit: null },
+  { name: 'ldc0.ch1_idrive', type: 'uint', min: 0, max: 31, def: 20, unit: null },
+  { name: 'ldc0.ch0_window', type: 'enum', min: 0, max: 4, def: 0, unit: null, enumValues: WINDOW_ENUM },
+  { name: 'ldc0.ch1_window', type: 'enum', min: 0, max: 4, def: 0, unit: null, enumValues: WINDOW_ENUM },
+  { name: 'ldc0.ch0_thresh_low', type: 'uint', min: 0, max: 268435455, def: 0, unit: null },
+  { name: 'ldc0.ch1_thresh_low', type: 'uint', min: 0, max: 268435455, def: 0, unit: null },
+  { name: 'ldc0.ch0_thresh_high', type: 'uint', min: 0, max: 268435455, def: 268435455, unit: null },
+  { name: 'ldc0.ch1_thresh_high', type: 'uint', min: 0, max: 268435455, def: 268435455, unit: null },
+  { name: 'ldc0.active_chan', type: 'enum', min: 0, max: 1, def: 0, unit: null, enumValues: ['CH0', 'CH1'] },
+  { name: 'ldc0.autoscan', type: 'bool', min: 0, max: 1, def: 1, unit: null },
+  { name: 'ldc0.deglitch', type: 'enum', min: 0, max: 3, def: 1, unit: null, enumValues: ['1MHZ', '3P3MHZ', '10MHZ', '33MHZ'] },
+  { name: 'ldc0.ref_clk_src', type: 'enum', min: 0, max: 1, def: 1, unit: null, enumValues: ['INTERNAL', 'CLKIN'] },
+  { name: 'ldc0.rp_override', type: 'bool', min: 0, max: 1, def: 1, unit: null },
+  { name: 'ldc0.high_current', type: 'bool', min: 0, max: 1, def: 0, unit: null },
+];
+
+function simRaw(ch, t) {
+  const baseline = ch === 0 ? 60000000 : 55000000;
+  const period = 9000 + ch * 1500;
+  const phase = (t % period) / period;
+  const triangle = phase < 0.5 ? phase * 2 : 2 - phase * 2;
+  const amplitude = 15000000;
+  return Math.round(baseline + triangle * amplitude);
+}
+
+function computeFreqHz(raw, finDiv, fRef) {
+  return Math.round((finDiv * fRef * raw) / Math.pow(2, 28));
+}
+
+function computePresent(windowIdx, raw, low, high) {
+  switch (windowIdx) {
+    case 1: return raw < low;                      // BELOW
+    case 2: return raw > high;                      // ABOVE
+    case 3: return raw < low || raw > high;          // OUT
+    case 4: return raw >= low && raw <= high;        // IN
+    default: return null;                            // OFF
+  }
+}
+
+const mockProfile = {
+  sensRow: ['ldc0', 'ldc1612', 'i2c', 0x2B, 'ok'],
+  channels: [
+    ['ldc0.ch0_raw', 'uint', 'RO'], ['ldc0.ch1_raw', 'uint', 'RO'],
+    ['ldc0.ch0_freq_hz', 'uint', 'RO'], ['ldc0.ch1_freq_hz', 'uint', 'RO'],
+    ['ldc0.ch0_present', 'bool', 'RO'], ['ldc0.ch1_present', 'bool', 'RO'],
+    ['ldc0.ch0_err', 'uint', 'RO'], ['ldc0.ch1_err', 'uint', 'RO'],
+    ['ldc0.status', 'uint', 'RO'],
+  ],
+  cfgDefs: ldcCfgDefs,
+  channelValue(name, cfg) {
+    const t = Date.now();
+    const m = /^ldc0\.ch(\d)_(raw|freq_hz|present|err)$/.exec(name);
+    if (m) {
+      const ch = Number(m[1]);
+      const autoscan = !!cfg['ldc0.autoscan'];
+      const activeChan = cfg['ldc0.active_chan'] || 0;
+      const active = autoscan || activeChan === ch;
+      const raw = active ? simRaw(ch, t) : null;
+      if (m[2] === 'raw') return raw;
+      if (m[2] === 'err') return 0;
+      const finDiv = cfg['ldc0.ch' + ch + '_fin_div'] || 1;
+      const frefDiv = cfg['ldc0.ch' + ch + '_fref_div'] || 2;
+      const fClk = (cfg['ldc0.ref_clk_src'] === 1) ? 40000000 : 43000000;
+      const fRef = fClk / frefDiv;
+      const freq = (raw === null) ? null : computeFreqHz(raw, finDiv, fRef);
+      if (m[2] === 'freq_hz') return freq;
+      // present
+      const windowIdx = cfg['ldc0.ch' + ch + '_window'] || 0;
+      if (raw === null) return null;
+      return computePresent(windowIdx, raw, cfg['ldc0.ch' + ch + '_thresh_low'], cfg['ldc0.ch' + ch + '_thresh_high']);
+    }
+    if (name === 'ldc0.status') return 0x0040; // DRDY, no errors
+    return null;
+  },
+  action: null, // sensor_ldc defines no action; CAL ldc0.* fails ENOCH
+};
+
+Panel.start({
+  prefsKey: 'ldc1612',
+  subscribe: ['ldc0.ch0_raw', 'ldc0.ch1_raw', 'ldc0.ch0_present', 'ldc0.ch1_present'],
+  onSample,
+  onPoll,
+  draw,
+  mockProfile,
+});
+</script>
+</body>
+</html>

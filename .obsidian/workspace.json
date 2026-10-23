@@ -1,0 +1,230 @@
+{
+  "main": {
+    "id": "791f024ef584d185",
+    "type": "split",
+    "children": [
+      {
+        "id": "1be20f7d985b7a20",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c0a728d02ff82f1f",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "README.md",
+                "mode": "preview",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "README"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "9b8f7aade95c83e7",
+    "type": "split",
+    "children": [
+      {
+        "id": "ba129884a6803438",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "637da31caf4b5246",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "1403174dc1ab371e",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "ff9487193699dd33",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "113f49ce63c8e96d",
+    "type": "split",
+    "children": [
+      {
+        "id": "61f45068f1cedcfc",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "61e36ddad5cf4c24",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "README.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "ccaf08b0ed4c55a0",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "README.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "3a50acad000ebe48",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "2011983563c7bf8c",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "442ce9a7d0b746c1",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "README.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "c0a728d02ff82f1f",
+  "lastOpenFiles": [
+    "web/index.html",
+    "web",
+    "build/CMakeFiles/clean_additional.cmake",
+    "build/CMakeFiles/TargetDirectories.txt.tmp6e83d",
+    "build/compile_commands.json.tmp9cb6e",
+    "build/CMakeFiles/rules.ninja.tmp1ee2c",
+    "build/build.ninja.tmp31c6e",
+    "build/CMakeCache.txt",
+    "build/CMakeFiles/CMakeScratch/TryCompile-olZnIb/CMakeFiles/pkgRedirects",
+    "build/CMakeFiles/CMakeScratch/TryCompile-olZnIb/CMakeFiles/rules.ninja",
+    "build/CMakeFiles/CMakeScratch/TryCompile-olZnIb/CMakeFiles/cmake.check_cache",
+    "docs/09-sensor-configuration.md",
+    "managed_components/espressif__tinyusb/src/class/midi/README_midi_host.md",
+    "managed_components/espressif__tinyusb/src/portable/microchip/pic/README.md",
+    "managed_components/espressif__tinyusb/src/portable/synopsys/dwc2/dwc2_info.md",
+    "managed_components/espressif__tinyusb/AGENTS.md",
+    "managed_components/espressif__tinyusb/examples/host/msc_file_explorer/README.md",
+    "managed_components/espressif__tinyusb/examples/host/hid_controller/README.md",
+    "managed_components/espressif__tinyusb/examples/host/midi2_host/README.md",
+    "managed_components/espressif__tinyusb/examples/host/device_info/README.md",
+    "managed_components/espressif__tinyusb/examples/host/midi_rx/README.md",
+    "managed_components/espressif__tinyusb/examples/host/cdc_msc_hid/README.md",
+    "managed_components/espressif__tinyusb/examples/host/bare_api/README.md",
+    "managed_components/espressif__tinyusb/examples/device/hid_boot_interface/README.md",
+    "managed_components/espressif__tinyusb/examples/device/printer_to_cdc/README.md",
+    "managed_components/espressif__tinyusb/examples/device/uac2_speaker_fb/README.md",
+    "managed_components/espressif__tinyusb/examples/device/hid_composite/README.md",
+    "managed_components/espressif__tinyusb/examples/device/uac2_headset/README.md",
+    "managed_components/espressif__tinyusb/examples/device/video_capture/README.md",
+    "managed_components/espressif__tinyusb/examples/device/board_test/README.md",
+    "managed_components/espressif__tinyusb/examples/device/audio_4_channel_mic/README.md",
+    "managed_components/espressif__tinyusb/examples/device/dfu/README.md",
+    "managed_components/espressif__tinyusb/examples/device/hid_generic_inout/README.md",
+    "managed_components/espressif__tinyusb/examples/device/usbtmc/README.md",
+    "managed_components/espressif__tinyusb/examples/device/video_capture_2ch/README.md",
+    "managed_components/espressif__tinyusb/examples/device/net_lwip_webserver/README.md"
+  ]
+}

@@ -1,0 +1,25 @@
+# Project C style. Vendored code (components/tinycbor, components/vl53l1x_uld
+# except its platform file, managed_components) is never formatted.
+BasedOnStyle: LLVM
+Language: Cpp
+IndentWidth: 4
+ColumnLimit: 120
+BreakBeforeBraces: Linux
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlignEscapedNewlines: Left
+AlignConsecutiveMacros: Consecutive
+AlignConsecutiveAssignments: None
+AlignTrailingComments: true
+PointerAlignment: Right
+SortIncludes: Never
+ReflowComments: false
+Cpp11BracedListStyle: false
+SpacesInContainerLiterals: true
+AlignAfterOpenBracket: Align
+BinPackArguments: true
+BinPackParameters: true
+AllowShortCaseLabelsOnASingleLine: false
+IndentCaseLabels: false
+SpacesBeforeTrailingComments: 1
